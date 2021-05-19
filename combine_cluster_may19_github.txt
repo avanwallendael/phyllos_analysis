@@ -1,0 +1,54 @@
+#Combine libraries, cluster OTUS, assign taxonomy with CONSTAX2
+#Acer VanWallendael
+
+cd ..
+mkdir combined
+cd combined
+
+cp ../lib14/filtered/filtered_R2.fastq ./lib14_f_r2.fastq
+cp ../lib15/filtered/filtered_R2.fastq ./lib15_f_r2.fastq
+cp ../lib16/filtered/filtered_R2.fastq ./lib16_f_r2.fastq
+
+#combine libraries
+cat lib14_f_r1.fastq lib15_f_r1.fastq lib16_f_r1.fastq > all_lib_R1.fastq
+cat lib14_f_r2.fastq lib15_f_r2.fastq lib16_f_r2.fastq > all_lib_R2.fastq
+
+#dereplicate
+/mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 -fastx_uniques all_lib_R1.fastq -fastaout clustered_OTU_ESV/all_lib_R1.fasta -sizeout
+
+#high memory usage & slow
+#UPARSE 97% OTUs
+/mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 -cluster_otus clustered_OTU_ESV/all_lib_R1.fasta -minsize 2 -otus clustered_OTU_ESV/otus_all_lib_R1.fasta -uparseout clustered_OTU_ESV/uparse_otus_all_lib_R1.txt -relabel OTU_ --threads 20
+/mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 -otutab all_lib_R1.fastq -otus clustered_OTU_ESV/otus_all_lib_R1.fasta -otutabout clustered_OTU_ESV/otu_table_all_lib_ITS_UPARSE_R1.txt
+
+
+#R2
+/mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 -fastx_uniques all_lib_R2.fastq -fastaout clustered_OTU_ESV/all_lib_R2.fasta -sizeout
+
+/mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 -cluster_otus clustered_OTU_ESV/all_lib_R2.fasta -minsize 2 -otus clustered_OTU_ESV/otus_all_lib_R2.fasta -uparseout clustered_OTU_ESV/uparse_otus_all_lib_R2.txt -relabel OTU_ --threads 20
+/mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 -otutab all_lib_R2.fastq -otus clustered_OTU_ESV/otus_all_lib_R2.fasta -otutabout clustered_OTU_ESV/otu_table_all_lib_ITS_UPARSE_R2.txt
+
+
+#constax: https://github.com/liberjul/CONSTAXv2. installed with
+#Clone the repository: git clone https://github.com/liberjul/CONSTAXv2.git
+#Make constax.sh executable.
+cd CONSTAXv2
+chmod +x constax.sh
+ln -s constax.sh constax
+cd ..
+module load BLAST
+
+mkdir tax_assign5
+mkdir tax_assign6
+
+cat synmock_annotated_for_General_FASTA_UNITE.fasta ./train1/train_sh_general.fasta > ./train1/train_mock.fasta
+
+./CONSTAXv2/constax -i ./clustered_OTU_ESV/otus_all_lib_R1.fasta \
+-o tax_assign6 \
+-f train2 \
+-x tax_assign5 \
+-d ./train1/train_mock.fasta \
+--sintax_path /mnt/research/rdp/public/thirdParty/usearch11.0.667_i86linux64 \
+--rdp_path /mnt/research/rdp/public/RDPTools/classifier.jar \
+--constax_path ./CONSTAXv2/ \
+-c 0.8 -t --num_threads 10 --blast --msu_hpcc
